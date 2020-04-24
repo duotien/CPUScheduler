@@ -93,7 +93,7 @@ void SJF(int check_time = -1, bool printstep = false);
 void SRTF(int check_time = -1, bool printstep = false);
 void RR(int check_time = -1, bool printstep = false);
 //algorithms helpers
-void executeProcess(Queue& ready, Queue& io);
+void executeProcess(Queue& ready, Queue& io, int step);
 bool checkProcessCompletion(Queue& ready, Queue& io);
 bool checkProcessArrival(Queue& ready, int& index, int t);
 bool checkProcessIOTime(Queue& ready, Queue& io);
@@ -103,6 +103,8 @@ bool processNeedIO(Queue ready);
 bool processDoneIO(Queue io);
 void SJFSorter(Queue& q);
 void SRTFSorter(Queue& q);
+//=============================================================================================================================This need works
+void SuppressIO();
 
 //======================================================//
 //		All Global Variables here
@@ -452,7 +454,7 @@ void FCFS(int check_time, bool printstep)
 		if (printstep) printSchedulerStep(ready, io, t);
 		else if (t == check_time) break;
 		//====================//
-		executeProcess(ready, io);
+		executeProcess(ready, io, step);
 		t += step;
 	} while (!isEmpty(ready) || !isEmpty(io));
 	if (printstep) cout << "==================================" << endl;
@@ -480,7 +482,7 @@ void SJF(int check_time, bool printstep)
 		if (printstep) printSchedulerStep(ready, io, t);
 		else if (t == check_time) break;
 		//====================//
-		executeProcess(ready, io);
+		executeProcess(ready, io, step);
 		t += step;
 	} while (!isEmpty(ready) || !isEmpty(io));
 	if(printstep) cout << "==================================" << endl;
@@ -493,7 +495,7 @@ void SRTF(int check_time, bool printstep)
 	int index = 0,
 		t = p[0].in;
 	bool detect_changes;
-	if (printstep) printHeaders("Shortest Job First");
+	if (printstep) printHeaders("Shortest Remaining Time First");
 	do
 	{
 		checkProcessCompletion(ready, io);
@@ -508,19 +510,41 @@ void SRTF(int check_time, bool printstep)
 		if (printstep) printSchedulerStep(ready, io, t);
 		else if (t == check_time) break;
 		//====================//
-		executeProcess(ready, io);
+		executeProcess(ready, io, step);
 		t += step;
 	} while (!isEmpty(ready) || !isEmpty(io));
 	if (printstep) cout << "==================================" << endl;
 }
+//=============================================================================================================================This need works
 void RR(int check_time, bool printstep)
 {
-	//
-	//
-	//
+	Queue ready, io;
+	init(ready);
+	init(io);
+	int index = 0,
+		t = p[0].in,
+		RRcount = 0;
+	if (printstep) printHeaders("Round Robin");
+	do
+	{
+		checkProcessCompletion(ready, io);
+		checkProcessArrival(ready, index, t);
+		checkProcessIOTime(ready, io);
+		checkProcessIOCompletion(ready, io);
+		//print out all step //
+		//and get RESULT here//
+		if (t == check_time) result = getResultString(ready, io, t);
+		if (printstep) printSchedulerStep(ready, io, t);
+		else if (t == check_time) break;
+		//====================//
+		executeProcess(ready, io, step_RR);
+		t += step_RR;
+		RRcount += step_RR;
+	} while (!isEmpty(ready) || !isEmpty(io));
+	if (printstep) cout << "==================================" << endl;
 }
 //Algorithm Helpers
-void executeProcess(Queue& ready, Queue& io)
+void executeProcess(Queue& ready, Queue& io, int step)
 {
 	if (!isEmpty(ready))
 	{
@@ -550,6 +574,7 @@ bool checkProcessCompletion(Queue& ready, Queue& io)
 }
 bool checkProcessArrival(Queue& ready, int& index, int t)
 {
+	// push arrived process into ready-q
 	bool detect_change = false;
 	while (t == p[index].in && index < n)
 	{
@@ -561,6 +586,7 @@ bool checkProcessArrival(Queue& ready, int& index, int t)
 }
 bool checkProcessIOTime(Queue& ready, Queue& io)
 {
+	// push process into io-q
 	bool detect_change = false;
 	while (processNeedIO(ready))
 	{
