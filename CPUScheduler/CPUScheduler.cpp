@@ -133,7 +133,8 @@ int main()
 	//FCFS(check_time);
 	//FCFS();
 	//SJF(check_time, true);
-	SRTF(check_time, true);
+	//SRTF(check_time, true);
+	RR(check_time, true);
 
 	cout << result;
 	return 0;
@@ -524,13 +525,29 @@ void RR(int check_time, bool printstep)
 	int index = 0,
 		t = p[0].in,
 		RRcount = 0;
+	bool detect_change;
 	if (printstep) printHeaders("Round Robin");
 	do
 	{
-		checkProcessCompletion(ready, io);
+		detect_change = checkProcessCompletion(ready, io);
+		if (detect_change) RRcount = 0;
 		checkProcessArrival(ready, index, t);
-		checkProcessIOTime(ready, io);
-		checkProcessIOCompletion(ready, io);
+		//process IO or Complete before the clock hit Quantum
+		if (RRcount == quantum)
+		{
+			//end current process's session if RRcount = quantum
+			//if p1 done IO and p2 ended turn, push p1 in first
+			//if p need IO => push back into ready-q and wait for next session
+			checkProcessIOCompletion(ready, io);
+			push(ready, front(ready));
+			pop(ready);
+			RRcount = 0;
+		}
+		else
+		{
+			checkProcessIOTime(ready, io);
+			checkProcessIOCompletion(ready, io);
+		}
 		//print out all step //
 		//and get RESULT here//
 		if (t == check_time) result = getResultString(ready, io, t);
