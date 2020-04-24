@@ -83,7 +83,7 @@ int findGCD(Process p[], int n, int quantum, int check_time);
 //Debug-Output
 void output_debug();
 void printSchedulerStep(Queue ready, Queue io, int t);
-void printHeaders();
+void printHeaders(string algorithm_name = "");
 //String
 string getPrintQueueString(Queue q, bool printfront = true);
 string getResultString(Queue ready, Queue io, int t);
@@ -94,14 +94,15 @@ void SRTF(int check_time = -1, bool printstep = false);
 void RR(int check_time = -1, bool printstep = false);
 //algorithms helpers
 void executeProcess(Queue& ready, Queue& io);
-void checkProcessCompletion(Queue& ready, Queue& io);
-void checkProcessArrival(Queue& ready, int& index, int t);
-void checkProcessArrival(Queue& ready, int& index, int t, bool& newprocessadded);
-void checkProcessIOTime(Queue& ready, Queue& io);
-void checkProcessIOCompletion(Queue& ready, Queue& io);
+bool checkProcessCompletion(Queue& ready, Queue& io);
+bool checkProcessArrival(Queue& ready, int& index, int t);
+bool checkProcessIOTime(Queue& ready, Queue& io);
+bool checkProcessIOCompletion(Queue& ready, Queue& io);
 bool processIsCompleted(Queue q);
 bool processNeedIO(Queue ready);
 bool processDoneIO(Queue io);
+void SJFSorter(Queue& q);
+void SRTFSorter(Queue& q);
 
 //======================================================//
 //		All Global Variables here
@@ -129,7 +130,9 @@ int main()
 	output_debug();
 	//FCFS(check_time);
 	//FCFS();
-	SJF(check_time, true);
+	//SJF(check_time, true);
+	SRTF(check_time, true);
+
 	cout << result;
 	return 0;
 }
@@ -386,8 +389,9 @@ void printSchedulerStep(Queue ready, Queue io, int t)
 	cout << setw(tab) << getPrintQueueString(io, false);
 	cout << endl;
 }
-void printHeaders()
+void printHeaders(string algorithm_name)
 {
+	cout << algorithm_name << endl;
 	cout << left << setw(tab)
 		<< "t" << setw(tab)
 		<< "CPU" << setw(tab)
@@ -435,7 +439,7 @@ void FCFS(int check_time, bool printstep)
 	init(io);
 	int index = 0,
 		t = p[0].in;
-	if (printstep) printHeaders();
+	if (printstep) printHeaders("First Come First Served");
 	do
 	{
 		checkProcessCompletion(ready, io);
@@ -451,6 +455,7 @@ void FCFS(int check_time, bool printstep)
 		executeProcess(ready, io);
 		t += step;
 	} while (!isEmpty(ready) || !isEmpty(io));
+	if (printstep) cout << "==================================" << endl;
 }
 void SJF(int check_time, bool printstep)
 {
@@ -459,16 +464,16 @@ void SJF(int check_time, bool printstep)
 	init(io);
 	int index = 0,
 		t = p[0].in;
-	bool newprocessadded;
-	if (printstep) printHeaders();
+	bool detect_changes;
+	if (printstep) printHeaders("Shortest Job First");
 	do
 	{
-		newprocessadded = false;
 		checkProcessCompletion(ready, io);
-		checkProcessArrival(ready, index, t, newprocessadded);
-		if (newprocessadded) sortQueue(ready);
+		detect_changes = checkProcessArrival(ready, index, t);
+		if (detect_changes) SJFSorter(ready);
 		checkProcessIOTime(ready, io);
-		checkProcessIOCompletion(ready, io);
+		detect_changes = checkProcessIOCompletion(ready, io);
+		if (detect_changes) SJFSorter(ready);
 		//print out all step //
 		//and get RESULT here//
 		if (t == check_time) result = getResultString(ready, io, t);
@@ -478,6 +483,7 @@ void SJF(int check_time, bool printstep)
 		executeProcess(ready, io);
 		t += step;
 	} while (!isEmpty(ready) || !isEmpty(io));
+	if(printstep) cout << "==================================" << endl;
 }
 void SRTF(int check_time, bool printstep)
 {
@@ -486,16 +492,16 @@ void SRTF(int check_time, bool printstep)
 	init(io);
 	int index = 0,
 		t = p[0].in;
-	bool newprocessadded;
-	if (printstep) printHeaders();
+	bool detect_changes;
+	if (printstep) printHeaders("Shortest Job First");
 	do
 	{
-		newprocessadded = false;
 		checkProcessCompletion(ready, io);
-		checkProcessArrival(ready, index, t, newprocessadded);
-		if (newprocessadded) sortQueue(ready);
+		detect_changes = checkProcessArrival(ready, index, t);
+		if (detect_changes) SRTFSorter(ready);
 		checkProcessIOTime(ready, io);
-		checkProcessIOCompletion(ready, io);
+		detect_changes = checkProcessIOCompletion(ready, io);
+		if (detect_changes) SRTFSorter(ready);
 		//print out all step //
 		//and get RESULT here//
 		if (t == check_time) result = getResultString(ready, io, t);
@@ -505,6 +511,7 @@ void SRTF(int check_time, bool printstep)
 		executeProcess(ready, io);
 		t += step;
 	} while (!isEmpty(ready) || !isEmpty(io));
+	if (printstep) cout << "==================================" << endl;
 }
 void RR(int check_time, bool printstep)
 {
@@ -526,43 +533,53 @@ void executeProcess(Queue& ready, Queue& io)
 		if (io.list[io.front].iodur == 0) io.list[io.front].ioin = -1;
 	}
 }
-void checkProcessCompletion(Queue& ready, Queue& io)
+bool checkProcessCompletion(Queue& ready, Queue& io)
 {
-	if (processIsCompleted(ready))   pop(ready);
-	if (processIsCompleted(io))      pop(io);
+	bool detect_change = false;
+	if (processIsCompleted(ready))
+	{
+		pop(ready);
+		detect_change = true;
+	}
+	if (processIsCompleted(io))
+	{
+		pop(io);
+		detect_change = true;
+	}
+	return detect_change;
 }
-void checkProcessArrival(Queue& ready, int& index, int t)
+bool checkProcessArrival(Queue& ready, int& index, int t)
 {
+	bool detect_change = false;
 	while (t == p[index].in && index < n)
 	{
 		push(ready, p[index]);
 		index++;
+		detect_change = true;
 	}
+	return detect_change;
 }
-void checkProcessArrival(Queue& ready, int& index, int t, bool& newprocessadded)
+bool checkProcessIOTime(Queue& ready, Queue& io)
 {
-	while (t == p[index].in && index < n)
-	{
-		push(ready, p[index]);
-		index++;
-		newprocessadded = true;
-	}
-}
-void checkProcessIOTime(Queue& ready, Queue& io)
-{
+	bool detect_change = false;
 	while (processNeedIO(ready))
 	{
 		push(io, front(ready));
 		pop(ready);
+		detect_change = true;
 	}
+	return detect_change;
 }
-void checkProcessIOCompletion(Queue& ready, Queue& io)
+bool checkProcessIOCompletion(Queue& ready, Queue& io)
 {
+	bool detect_change = false;
 	while (processDoneIO(io))
 	{
 		push(ready, front(io));
 		pop(io);
+		detect_change = true;
 	}
+	return detect_change;
 }
 bool processIsCompleted(Queue q)
 {
@@ -578,4 +595,13 @@ bool processDoneIO(Queue io)
 {
 	if (!isEmpty(io)) return (front(io).iodur == 0);
 	return false;
+}
+void SJFSorter(Queue& q)
+{
+	if (isEmpty(q)) sortQueue(q, true);
+	else			sortQueue(q);
+}
+void SRTFSorter(Queue& q)
+{
+	sortQueue(q, true);
 }
