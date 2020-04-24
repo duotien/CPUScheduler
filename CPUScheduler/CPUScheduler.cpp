@@ -124,7 +124,7 @@ const int tab = 15;
 
 int main()
 {
-	input("test1.txt");
+	input("input.txt");
 	cout << setprecision(decimal_places) << fixed;
 	output_debug();
 	//FCFS(check_time);
