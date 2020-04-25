@@ -1,3 +1,7 @@
+/*=======================================================
+Program: CPU Scheduling Algorithm
+Author: Tien Duong
+=========================================================*/
 #include <iostream>
 #include <fstream>
 #include <algorithm>
@@ -13,6 +17,7 @@ const int MAX = 100;
 //======================================================//
 enum AlgorithmType
 {
+	A_UNIDENTIFIED,
 	A_FCFS,
 	A_SJF,
 	A_SRTF,
@@ -24,7 +29,7 @@ enum AlgorithmType
 //======================================================//
 struct Process
 {
-	char name;
+	string name;
 	int burst, in, ioin, iodur;
 };
 struct Queue
@@ -49,11 +54,12 @@ bool operator!=(Process p1, Process p2)
 }
 ostream& operator<<(ostream& out, Process rhs)
 {
-	out << rhs.name << " "
-		<< rhs.burst << " "
-		<< rhs.in << " "
-		<< rhs.ioin << " "
-		<< rhs.iodur;
+	out << "{"
+		<< rhs.name << ", "
+		<< rhs.burst << ", "
+		<< rhs.in << ", "
+		<< rhs.ioin << ", "
+		<< rhs.iodur << "}";
 	return out;
 }
 //======================================================//
@@ -109,7 +115,7 @@ bool checkProcessIOCompletion(Queue& ready, Queue& io);
 bool processIsCompleted(Queue q);
 bool processNeedIO(Queue ready);
 bool processDoneIO(Queue io);
-void SJFSorter(Queue& q);
+void SJFSorter(Queue& q, bool ready_queue_was_empty);
 void SRTFSorter(Queue& q);
 //======================================================//
 //		All Global Variables here
@@ -117,21 +123,26 @@ void SRTFSorter(Queue& q);
 Process			p[MAX];
 int				n, quantum, check_time;
 int				step, step_RR;
+int				running_time;
 string			result = "";
 Queue			process;
 AlgorithmType	algorithm_type;
 //======================================================//
 //		All Constants here
 //======================================================//
-const Process NULLDATA = { '-',-1,-1,-1,-1 };
-const int DECIMAL_PLACES = 3;
-const int DECIMAL_VALUE = pow(10, DECIMAL_PLACES);
-const int tab = 15;
+const Process NULLDATA = { "-",-1,-1,-1,-1 };
+const int DECIMAL_PLACES_LIMIT = 2;
+const int DECIMAL_VALUE = pow(10, DECIMAL_PLACES_LIMIT);
+const int TAB = 15;
+const int QUEUE_TAB = TAB + 20;
 //======================================================//
 int main()
 {
+	//all testcases can be found in: input_test.txt
+	//remove 'input.txt' to manually input from keyboard
+	//use: output(true); to print all the step;
 	input("input.txt");
-	output();
+	output(true);
 	return 0;
 }
 //======================================================//
@@ -313,14 +324,15 @@ AlgorithmType stringToEnum(string name)
 	if (name == "sjf") return A_SJF;
 	if (name == "srtf") return A_SRTF;
 	if (name == "rr") return A_RR;
-	return A_ALL;
+	if (name == "all") return A_ALL;
+	return A_UNIDENTIFIED;
 }
 int getStringtoInt(string snum)
 {
 	int whole = 0;
 	int decimalplace = 0;
 	bool isdecimal = false;
-	for (int i = 0; i < snum.length() && decimalplace < DECIMAL_PLACES; ++i)
+	for (int i = 0; i < snum.length() && decimalplace < DECIMAL_PLACES_LIMIT; ++i)
 	{
 		if (snum[i] == '.')
 		{
@@ -330,7 +342,7 @@ int getStringtoInt(string snum)
 		if (isdecimal) ++decimalplace;
 		whole = (whole * 10) + (snum[i] - '0');
 	}
-	while (decimalplace < DECIMAL_PLACES)
+	while (decimalplace < DECIMAL_PLACES_LIMIT)
 	{
 		whole *= 10;
 		++decimalplace;
@@ -367,7 +379,7 @@ int findGCD(Process p[], int n, int quantum, int check_time)
 //Debug - Output
 void output(bool debug_mode)
 {
-	cout << setprecision(DECIMAL_PLACES) << fixed;
+	cout << setprecision(DECIMAL_PLACES_LIMIT) << fixed;
 	if (debug_mode) output_debug();
 	switch (algorithm_type)
 	{
@@ -398,9 +410,10 @@ void output(bool debug_mode)
 		RR(check_time, debug_mode);
 		break;
 	default:
-		cout << "Type FCFS, SJF, SRTF, RR, ALL";
+		result = "Unidentified Algorithm type.\ntype: FCFS, SJF, SRTF, ALL.\n";
 		break;
 	}
+	if (running_time < check_time) result += "total run-time exceeded.\n";
 	cout << result;
 }
 void output_debug()
@@ -408,10 +421,10 @@ void output_debug()
 	cout << "==================================" << endl
 		<< "debug" << endl
 		<< "==================================" << endl
-		<< "NULLDATA = {" << NULLDATA << "}" << endl
-		<< "DECIMAL_LIMIT = " << DECIMAL_PLACES << endl
+		<< "NULLDATA = "<< NULLDATA << endl
+		<< "DECIMAL_LIMIT = " << DECIMAL_PLACES_LIMIT << endl
 		<< "DECIMAL_VALUE = " << DECIMAL_VALUE << endl
-		<< "TAB = " << tab << endl
+		<< "TAB = " << TAB << endl
 		<< "algorithm type = " << algorithm_type << endl
 		<< "n = " << n
 		<< "\tquantum = " << quantum
@@ -426,89 +439,89 @@ void output_debug()
 }
 void printSchedulerStep(Queue ready, Queue io, int t)
 {
-	cout << left << setw(tab) << (float)t / DECIMAL_VALUE;
+	cout << left << setw(TAB) << (float)t / DECIMAL_VALUE;
 
-	cout << setw(tab);
+	cout << setw(TAB);
 	if (!isEmpty(ready)) cout << front(ready).name;
 	else cout << "-";
 
-	cout << setw(tab);
+	cout << setw(TAB);
 	if (!isEmpty(io)) cout << front(io).name;
 	else cout << "-";
 
-	cout << setw(tab) << getPrintQueueString(ready, false);
-	cout << setw(tab) << getPrintQueueString(io, false);
+	cout << setw(QUEUE_TAB) << getPrintQueueString(ready, false);
+	cout << setw(QUEUE_TAB) << getPrintQueueString(io, false);
 	cout << endl;
 }
 void printHeaders(string algorithm_name)
 {
 	cout << algorithm_name << endl;
-	cout << left << setw(tab)
-		<< "t" << setw(tab)
-		<< "CPU" << setw(tab)
-		<< "IO" << setw(tab)
-		<< "r-q" << setw(tab)
+	cout << left << setw(TAB)
+		<< "t" << setw(TAB)
+		<< "CPU" << setw(TAB)
+		<< "IO" << setw(QUEUE_TAB)
+		<< "r-q" << setw(QUEUE_TAB)
 		<< "io-q" << endl;
 }
 void printRRSchedulerStep(Queue ready, Queue io, int t, int RRcount)
 {
-	cout << left << setw(tab)
-		 << (float)t / DECIMAL_VALUE << setw(tab)
+	cout << left << setw(TAB)
+		 << (float)t / DECIMAL_VALUE << setw(TAB)
 		 << (float)RRcount / DECIMAL_VALUE;
 	
-	cout << setw(tab);
+	cout << setw(TAB);
 	if (!isEmpty(ready)) cout << front(ready).name;
 	else cout << "-";
 
-	cout << setw(tab);
+	cout << setw(TAB);
 	if (!isEmpty(io)) cout << front(io).name;
 	else cout << "-";
 
-	cout << setw(tab) << getPrintQueueString(ready, false);
-	cout << setw(tab) << getPrintQueueString(io, false);
+	cout << setw(QUEUE_TAB) << getPrintQueueString(ready, false);
+	cout << setw(QUEUE_TAB) << getPrintQueueString(io, false);
 	cout << endl;
 }
 void printRRHeaders()
 {
 	cout << "Round Robin" << endl;
-	cout << left << setw(tab)
-		<< "t" << setw(tab)
-		<< "q" << setw(tab)
-		<< "CPU" << setw(tab)
-		<< "IO" << setw(tab)
-		<< "r-q" << setw(tab)
+	cout << left << setw(TAB)
+		<< "t" << setw(TAB)
+		<< "q" << setw(TAB)
+		<< "CPU" << setw(TAB)
+		<< "IO" << setw(QUEUE_TAB)
+		<< "r-q" << setw(QUEUE_TAB)
 		<< "io-q" << endl;
 }
 //String
 string getPrintQueueString(Queue q, bool printfront)
 {
-	string result = "";
 	if (!printfront)
 	{
 		pop(q);
 	}
-	if (isEmpty(q)) result = "-";
+	if (isEmpty(q)) return "-";
+	string result = "";
 	while (!isEmpty(q))
 	{
-		result += front(q).name;
+		result += front(q).name + ",";
 		pop(q);
-	}
+	}result.erase(result.length()-1);
 	return result;
 }
 string getResultString(Queue ready, Queue io, int t)
 {
 	stringstream result;
-	result << left << setw(tab) << "t = " << (float)t / DECIMAL_VALUE << endl;
-	result << setw(tab) << "CPU (running):" << setw(tab);
+	result << left << setw(TAB) << "t = " << (float)t / DECIMAL_VALUE << endl;
+	result << setw(TAB) << "CPU (running):" << setw(TAB);
 	if (!isEmpty(ready)) result << front(ready).name;
 	else result << "-";
 	result << endl;
-	result << setw(tab) << "IO (waiting):" << setw(tab);
+	result << setw(TAB) << "IO (waiting):" << setw(TAB);
 	if (!isEmpty(io)) result << front(io).name;
 	else result << "-";
 	result << endl;
-	result << setw(tab) << "Ready-queue:" << setw(tab) << getPrintQueueString(ready, false) << endl;
-	result << setw(tab) << "IO-queue:" << setw(tab) << getPrintQueueString(io, false) << endl << endl;
+	result << setw(TAB) << "Ready-queue:" << setw(TAB) << getPrintQueueString(ready, false) << endl;
+	result << setw(TAB) << "IO-queue:" << setw(TAB) << getPrintQueueString(io, false) << endl << endl;
 	return result.str();
 }
 //Scheduling Algorithms
@@ -535,6 +548,7 @@ void FCFS(int check_time, bool printstep)
 		t += step;
 	} while (!isEmpty(ready) || !isEmpty(io));
 	if (printstep) cout << "==================================" << endl;
+	running_time = t;
 }
 void SJF(int check_time, bool printstep)
 {
@@ -543,16 +557,19 @@ void SJF(int check_time, bool printstep)
 	init(io);
 	int index = 0,
 		t = p[0].in;
-	bool detect_changes;
+	bool detect_change,
+		 ready_queue_was_empty;
 	if (printstep) printHeaders("Shortest Job First");
 	do
 	{
 		checkProcessCompletion(ready, io);
-		detect_changes = checkProcessArrival(ready, index, t);
-		if (detect_changes) SJFSorter(ready);
+		ready_queue_was_empty = isEmpty(ready);
+		detect_change = checkProcessArrival(ready, index, t);
+		if (detect_change) SJFSorter(ready, ready_queue_was_empty);
 		checkProcessIOTime(ready, io);
-		detect_changes = checkProcessIOCompletion(ready, io);
-		if (detect_changes) SJFSorter(ready);
+		ready_queue_was_empty = isEmpty(ready);
+		detect_change = checkProcessIOCompletion(ready, io);
+		if (detect_change) SJFSorter(ready, ready_queue_was_empty);
 		//print step & get Result//
 		if (t == check_time) result += getResultString(ready, io, t);
 		if (printstep) printSchedulerStep(ready, io, t);
@@ -562,6 +579,7 @@ void SJF(int check_time, bool printstep)
 		t += step;
 	} while (!isEmpty(ready) || !isEmpty(io));
 	if(printstep) cout << "==================================" << endl;
+	running_time = t;
 }
 void SRTF(int check_time, bool printstep)
 {
@@ -589,6 +607,7 @@ void SRTF(int check_time, bool printstep)
 		t += step;
 	} while (!isEmpty(ready) || !isEmpty(io));
 	if (printstep) cout << "==================================" << endl;
+	running_time = t;
 }
 void RR(int check_time, bool printstep)
 {
@@ -629,6 +648,7 @@ void RR(int check_time, bool printstep)
 		RRcount += step_RR;
 	} while (!isEmpty(ready) || !isEmpty(io));
 	if (printstep) cout << "==================================" << endl;
+	running_time = t;
 }
 //Algorithm Helpers
 void executeProcess(Queue& ready, Queue& io, int step)
@@ -713,10 +733,10 @@ bool processDoneIO(Queue io)
 	if (!isEmpty(io)) return (front(io).iodur == 0);
 	return false;
 }
-void SJFSorter(Queue& q)
+void SJFSorter(Queue& q, bool ready_queue_was_empty)
 {
-	if (isEmpty(q)) sortQueue(q, true);
-	else			sortQueue(q);
+	if (ready_queue_was_empty) sortQueue(q, true);
+	else					   sortQueue(q);
 }
 void SRTFSorter(Queue& q)
 {
