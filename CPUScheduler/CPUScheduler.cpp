@@ -9,6 +9,17 @@
 using namespace std;
 const int MAX = 100;
 //======================================================//
+//		ENUM
+//======================================================//
+enum AlgorithmType
+{
+	A_FCFS,
+	A_SJF,
+	A_SRTF,
+	A_RR,
+	A_ALL
+};
+//======================================================//
 //		All Structures here
 //======================================================//
 struct Process
@@ -69,11 +80,13 @@ bool compareArrivalTime(Process p1, Process p2);
 //Input
 void input();
 void input(string filename);
+AlgorithmType stringToEnum(string name);
 int getStringtoInt(string snum);
 int GCD(int a, int b);
 int GCDofProcess(Process p);
 int findGCD(Process p[], int n, int quantum, int check_time);
 //Debug-Output
+void output(bool debug_mode = false);
 void output_debug();
 void printSchedulerStep(Queue ready, Queue io, int t);
 void printHeaders(string algorithm_name = "");
@@ -104,8 +117,9 @@ void SRTFSorter(Queue& q);
 Process			p[MAX];
 int				n, quantum, check_time;
 int				step, step_RR;
-string			result;
+string			result = "";
 Queue			process;
+AlgorithmType	algorithm_type;
 //======================================================//
 //		All Constants here
 //======================================================//
@@ -117,14 +131,7 @@ const int tab = 15;
 int main()
 {
 	input("input.txt");
-	cout << setprecision(DECIMAL_PLACES) << fixed;
-	output_debug();
-	FCFS(check_time, true);
-	SJF(check_time, true);
-	SRTF(check_time, true);
-	RR(check_time, true);
-
-	cout << result;
+	output();
 	return 0;
 }
 //======================================================//
@@ -253,8 +260,9 @@ bool compareArrivalTime(Process p1, Process p2)
 //input
 void input()
 {
-	string squantum, scheck_time, sburst, sin, sioin, siodur;
-	cin >> n >> squantum >> scheck_time;
+	string stype, squantum, scheck_time, sburst, sin, sioin, siodur;
+	cin >> stype >> n >> squantum >> scheck_time;
+	algorithm_type = stringToEnum(stype);
 	quantum = getStringtoInt(squantum);
 	check_time = getStringtoInt(scheck_time);
 	for (int i = 0; i < n; ++i)
@@ -275,8 +283,9 @@ void input(string filename)
 	f.open(filename.c_str());
 	if (f.is_open())
 	{
-		string squantum, scheck_time, sburst, sin, sioin, siodur;
-		f >> n >> squantum >> scheck_time;
+		string stype, squantum, scheck_time, sburst, sin, sioin, siodur;
+		f >> stype >> n >> squantum >> scheck_time;
+		algorithm_type = stringToEnum(stype);
 		quantum = getStringtoInt(squantum);
 		check_time = getStringtoInt(scheck_time);
 		for (int i = 0; i < n; ++i)
@@ -293,6 +302,18 @@ void input(string filename)
 		f.close();
 	}
 	else cout << "Can't open the file." << endl;
+}
+AlgorithmType stringToEnum(string name)
+{
+	for (int i = 0; i < name.length(); ++i)
+	{
+		name[i] = tolower(name[i]);
+	}
+	if (name == "fcfs") return A_FCFS;
+	if (name == "sjf") return A_SJF;
+	if (name == "srtf") return A_SRTF;
+	if (name == "rr") return A_RR;
+	return A_ALL;
 }
 int getStringtoInt(string snum)
 {
@@ -344,6 +365,44 @@ int findGCD(Process p[], int n, int quantum, int check_time)
 	return result;
 }
 //Debug - Output
+void output(bool debug_mode)
+{
+	cout << setprecision(DECIMAL_PLACES) << fixed;
+	if (debug_mode) output_debug();
+	switch (algorithm_type)
+	{
+	case A_FCFS:
+		result = "First Come, First Served:\n";
+		FCFS(check_time, debug_mode);
+		break;
+	case A_SJF:
+		result = "Shortest Job First:\n";
+		SJF(check_time, debug_mode);
+		break;
+	case A_SRTF:
+		result = "Shortest Remaining Time First:\n";
+		SRTF(check_time, debug_mode);
+		break;
+	case A_RR:
+		result = "Round Robin:\n";
+		RR(check_time, debug_mode);
+		break;
+	case A_ALL:
+		result += "First Come, First Served:\n";
+		FCFS(check_time, debug_mode);
+		result += "Shortest Job First:\n";
+		SJF(check_time, debug_mode);
+		result += "Shortest Remaining Time First:\n";
+		SRTF(check_time, debug_mode);
+		result += "Round Robin:\n";
+		RR(check_time, debug_mode);
+		break;
+	default:
+		cout << "Type FCFS, SJF, SRTF, RR, ALL";
+		break;
+	}
+	cout << result;
+}
 void output_debug()
 {
 	cout << "==================================" << endl
@@ -353,6 +412,7 @@ void output_debug()
 		<< "DECIMAL_LIMIT = " << DECIMAL_PLACES << endl
 		<< "DECIMAL_VALUE = " << DECIMAL_VALUE << endl
 		<< "TAB = " << tab << endl
+		<< "algorithm type = " << algorithm_type << endl
 		<< "n = " << n
 		<< "\tquantum = " << quantum
 		<< "\tcheck_time = " << check_time << endl;
@@ -448,7 +508,7 @@ string getResultString(Queue ready, Queue io, int t)
 	else result << "-";
 	result << endl;
 	result << setw(tab) << "Ready-queue:" << setw(tab) << getPrintQueueString(ready, false) << endl;
-	result << setw(tab) << "IO-queue:" << setw(tab) << getPrintQueueString(io, false) << endl;
+	result << setw(tab) << "IO-queue:" << setw(tab) << getPrintQueueString(io, false) << endl << endl;
 	return result.str();
 }
 //Scheduling Algorithms
@@ -467,7 +527,7 @@ void FCFS(int check_time, bool printstep)
 		checkProcessIOTime(ready, io);
 		checkProcessIOCompletion(ready, io);
 		//print step & get Result//
-		if (t == check_time) result = getResultString(ready, io, t);
+		if (t == check_time) result += getResultString(ready, io, t);
 		if (printstep) printSchedulerStep(ready, io, t);
 		else if (t == check_time) break;
 		//====================//
@@ -494,7 +554,7 @@ void SJF(int check_time, bool printstep)
 		detect_changes = checkProcessIOCompletion(ready, io);
 		if (detect_changes) SJFSorter(ready);
 		//print step & get Result//
-		if (t == check_time) result = getResultString(ready, io, t);
+		if (t == check_time) result += getResultString(ready, io, t);
 		if (printstep) printSchedulerStep(ready, io, t);
 		else if (t == check_time) break;
 		//====================//
@@ -521,7 +581,7 @@ void SRTF(int check_time, bool printstep)
 		detect_changes = checkProcessIOCompletion(ready, io);
 		if (detect_changes) SRTFSorter(ready);
 		//print step & get Result//
-		if (t == check_time) result = getResultString(ready, io, t);
+		if (t == check_time) result += getResultString(ready, io, t);
 		if (printstep) printSchedulerStep(ready, io, t);
 		else if (t == check_time) break;
 		//====================//
@@ -560,7 +620,7 @@ void RR(int check_time, bool printstep)
 			RRcount = 0;
 		}
 		//print step & get Result//
-		if (t == check_time) result = getResultString(ready, io, t);
+		if (t == check_time) result += getResultString(ready, io, t);
 		if (printstep) printRRSchedulerStep(ready, io, t, RRcount);
 		else if (t == check_time) break;
 		//====================//
