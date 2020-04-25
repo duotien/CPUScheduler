@@ -45,10 +45,6 @@ ostream& operator<<(ostream& out, Process rhs)
 		<< rhs.iodur;
 	return out;
 }
-bool arriveFirst(Process p1, Process p2)
-{
-	return p1.in < p2.in;
-}
 //======================================================//
 //		Prototypes
 //======================================================//
@@ -70,9 +66,6 @@ void sortQueue(Queue & q, bool firstelement = false);
 void printQueue(Queue q, bool printfront = true);
 bool compareBurstTime(Process p1, Process p2);
 bool compareArrivalTime(Process p1, Process p2);
-//file
-//
-//
 //Input
 void input();
 void input(string filename);
@@ -84,6 +77,8 @@ int findGCD(Process p[], int n, int quantum, int check_time);
 void output_debug();
 void printSchedulerStep(Queue ready, Queue io, int t);
 void printHeaders(string algorithm_name = "");
+void printRRSchedulerStep(Queue ready, Queue io, int t, int RRcount);
+void printRRHeaders();
 //String
 string getPrintQueueString(Queue q, bool printfront = true);
 string getResultString(Queue ready, Queue io, int t);
@@ -94,7 +89,7 @@ void SRTF(int check_time = -1, bool printstep = false);
 void RR(int check_time = -1, bool printstep = false);
 //algorithms helpers
 void executeProcess(Queue& ready, Queue& io, int step);
-bool checkProcessCompletion(Queue& ready, Queue& io);
+bool checkProcessCompletion(Queue& ready, Queue& io, bool ready_queue_only = true);
 bool checkProcessArrival(Queue& ready, int& index, int t);
 bool checkProcessIOTime(Queue& ready, Queue& io);
 bool checkProcessIOCompletion(Queue& ready, Queue& io);
@@ -103,9 +98,6 @@ bool processNeedIO(Queue ready);
 bool processDoneIO(Queue io);
 void SJFSorter(Queue& q);
 void SRTFSorter(Queue& q);
-//=============================================================================================================================This need works
-void SuppressIO();
-
 //======================================================//
 //		All Global Variables here
 //======================================================//
@@ -118,22 +110,18 @@ Queue			process;
 //		All Constants here
 //======================================================//
 const Process NULLDATA = { '-',-1,-1,-1,-1 };
-
-const int decimal_places = 3;
-const int decimal_value = pow(10, decimal_places);
+const int DECIMAL_PLACES = 3;
+const int DECIMAL_VALUE = pow(10, DECIMAL_PLACES);
 const int tab = 15;
-
 //======================================================//
-
 int main()
 {
 	input("input.txt");
-	cout << setprecision(decimal_places) << fixed;
+	cout << setprecision(DECIMAL_PLACES) << fixed;
 	output_debug();
-	//FCFS(check_time);
-	//FCFS();
-	//SJF(check_time, true);
-	//SRTF(check_time, true);
+	FCFS(check_time, true);
+	SJF(check_time, true);
+	SRTF(check_time, true);
 	RR(check_time, true);
 
 	cout << result;
@@ -279,7 +267,7 @@ void input()
 	}
 	step = findGCD(p, n, 0, check_time);
 	step_RR = findGCD(p, n, quantum, check_time);
-	sort(p, p + n, arriveFirst);
+	sort(p, p + n, compareArrivalTime);
 }
 void input(string filename)
 {
@@ -301,7 +289,7 @@ void input(string filename)
 		}
 		step = findGCD(p, n, 0, check_time);
 		step_RR = findGCD(p, n, quantum, check_time);
-		sort(p, p + n, arriveFirst);
+		sort(p, p + n, compareArrivalTime);
 		f.close();
 	}
 	else cout << "Can't open the file." << endl;
@@ -311,7 +299,7 @@ int getStringtoInt(string snum)
 	int whole = 0;
 	int decimalplace = 0;
 	bool isdecimal = false;
-	for (int i = 0; i < snum.length() && decimalplace < decimal_places; ++i)
+	for (int i = 0; i < snum.length() && decimalplace < DECIMAL_PLACES; ++i)
 	{
 		if (snum[i] == '.')
 		{
@@ -321,7 +309,7 @@ int getStringtoInt(string snum)
 		if (isdecimal) ++decimalplace;
 		whole = (whole * 10) + (snum[i] - '0');
 	}
-	while (decimalplace < decimal_places)
+	while (decimalplace < DECIMAL_PLACES)
 	{
 		whole *= 10;
 		++decimalplace;
@@ -362,8 +350,8 @@ void output_debug()
 		<< "debug" << endl
 		<< "==================================" << endl
 		<< "NULLDATA = {" << NULLDATA << "}" << endl
-		<< "DECIMAL_LIMIT = " << decimal_places << endl
-		<< "DECIMAL_VALUE = " << decimal_value << endl
+		<< "DECIMAL_LIMIT = " << DECIMAL_PLACES << endl
+		<< "DECIMAL_VALUE = " << DECIMAL_VALUE << endl
 		<< "TAB = " << tab << endl
 		<< "n = " << n
 		<< "\tquantum = " << quantum
@@ -378,7 +366,7 @@ void output_debug()
 }
 void printSchedulerStep(Queue ready, Queue io, int t)
 {
-	cout << left << setw(tab) << (float)t / decimal_value;
+	cout << left << setw(tab) << (float)t / DECIMAL_VALUE;
 
 	cout << setw(tab);
 	if (!isEmpty(ready)) cout << front(ready).name;
@@ -397,6 +385,35 @@ void printHeaders(string algorithm_name)
 	cout << algorithm_name << endl;
 	cout << left << setw(tab)
 		<< "t" << setw(tab)
+		<< "CPU" << setw(tab)
+		<< "IO" << setw(tab)
+		<< "r-q" << setw(tab)
+		<< "io-q" << endl;
+}
+void printRRSchedulerStep(Queue ready, Queue io, int t, int RRcount)
+{
+	cout << left << setw(tab)
+		 << (float)t / DECIMAL_VALUE << setw(tab)
+		 << (float)RRcount / DECIMAL_VALUE;
+	
+	cout << setw(tab);
+	if (!isEmpty(ready)) cout << front(ready).name;
+	else cout << "-";
+
+	cout << setw(tab);
+	if (!isEmpty(io)) cout << front(io).name;
+	else cout << "-";
+
+	cout << setw(tab) << getPrintQueueString(ready, false);
+	cout << setw(tab) << getPrintQueueString(io, false);
+	cout << endl;
+}
+void printRRHeaders()
+{
+	cout << "Round Robin" << endl;
+	cout << left << setw(tab)
+		<< "t" << setw(tab)
+		<< "q" << setw(tab)
 		<< "CPU" << setw(tab)
 		<< "IO" << setw(tab)
 		<< "r-q" << setw(tab)
@@ -421,7 +438,7 @@ string getPrintQueueString(Queue q, bool printfront)
 string getResultString(Queue ready, Queue io, int t)
 {
 	stringstream result;
-	result << left << setw(tab) << "t = " << (float)t / decimal_value << endl;
+	result << left << setw(tab) << "t = " << (float)t / DECIMAL_VALUE << endl;
 	result << setw(tab) << "CPU (running):" << setw(tab);
 	if (!isEmpty(ready)) result << front(ready).name;
 	else result << "-";
@@ -449,8 +466,7 @@ void FCFS(int check_time, bool printstep)
 		checkProcessArrival(ready, index, t);
 		checkProcessIOTime(ready, io);
 		checkProcessIOCompletion(ready, io);
-		//print out all step //
-		//and get RESULT here//
+		//print step & get Result//
 		if (t == check_time) result = getResultString(ready, io, t);
 		if (printstep) printSchedulerStep(ready, io, t);
 		else if (t == check_time) break;
@@ -477,8 +493,7 @@ void SJF(int check_time, bool printstep)
 		checkProcessIOTime(ready, io);
 		detect_changes = checkProcessIOCompletion(ready, io);
 		if (detect_changes) SJFSorter(ready);
-		//print out all step //
-		//and get RESULT here//
+		//print step & get Result//
 		if (t == check_time) result = getResultString(ready, io, t);
 		if (printstep) printSchedulerStep(ready, io, t);
 		else if (t == check_time) break;
@@ -505,8 +520,7 @@ void SRTF(int check_time, bool printstep)
 		checkProcessIOTime(ready, io);
 		detect_changes = checkProcessIOCompletion(ready, io);
 		if (detect_changes) SRTFSorter(ready);
-		//print out all step //
-		//and get RESULT here//
+		//print step & get Result//
 		if (t == check_time) result = getResultString(ready, io, t);
 		if (printstep) printSchedulerStep(ready, io, t);
 		else if (t == check_time) break;
@@ -516,7 +530,6 @@ void SRTF(int check_time, bool printstep)
 	} while (!isEmpty(ready) || !isEmpty(io));
 	if (printstep) cout << "==================================" << endl;
 }
-//=============================================================================================================================This need works
 void RR(int check_time, bool printstep)
 {
 	Queue ready, io;
@@ -526,32 +539,29 @@ void RR(int check_time, bool printstep)
 		t = p[0].in,
 		RRcount = 0;
 	bool detect_change;
-	if (printstep) printHeaders("Round Robin");
+	if (printstep) printRRHeaders();
 	do
 	{
 		detect_change = checkProcessCompletion(ready, io);
-		if (detect_change) RRcount = 0;
+		if (detect_change || isEmpty(ready)) RRcount = 0;
 		checkProcessArrival(ready, index, t);
-		//process IO or Complete before the clock hit Quantum
-		if (RRcount == quantum)
+		if (RRcount != quantum)
 		{
-			//end current process's session if RRcount = quantum
-			//if p1 done IO and p2 ended turn, push p1 in first
-			//if p need IO => push back into ready-q and wait for next session
+			detect_change = checkProcessIOTime(ready, io);
+			if (detect_change) RRcount = 0;
 			checkProcessIOCompletion(ready, io);
-			push(ready, front(ready));
-			pop(ready);
-			RRcount = 0;
 		}
 		else
 		{
-			checkProcessIOTime(ready, io);
 			checkProcessIOCompletion(ready, io);
+			push(ready, front(ready));
+			pop(ready);
+			checkProcessIOTime(ready, io);
+			RRcount = 0;
 		}
-		//print out all step //
-		//and get RESULT here//
+		//print step & get Result//
 		if (t == check_time) result = getResultString(ready, io, t);
-		if (printstep) printSchedulerStep(ready, io, t);
+		if (printstep) printRRSchedulerStep(ready, io, t, RRcount);
 		else if (t == check_time) break;
 		//====================//
 		executeProcess(ready, io, step_RR);
@@ -574,7 +584,7 @@ void executeProcess(Queue& ready, Queue& io, int step)
 		if (io.list[io.front].iodur == 0) io.list[io.front].ioin = -1;
 	}
 }
-bool checkProcessCompletion(Queue& ready, Queue& io)
+bool checkProcessCompletion(Queue& ready, Queue& io, bool ready_queue_only)
 {
 	bool detect_change = false;
 	if (processIsCompleted(ready))
@@ -585,13 +595,13 @@ bool checkProcessCompletion(Queue& ready, Queue& io)
 	if (processIsCompleted(io))
 	{
 		pop(io);
-		detect_change = true;
+		if(!ready_queue_only) detect_change = true;
 	}
 	return detect_change;
 }
 bool checkProcessArrival(Queue& ready, int& index, int t)
 {
-	// push arrived process into ready-q
+	//push arrived process into ready-q
 	bool detect_change = false;
 	while (t == p[index].in && index < n)
 	{
@@ -603,7 +613,7 @@ bool checkProcessArrival(Queue& ready, int& index, int t)
 }
 bool checkProcessIOTime(Queue& ready, Queue& io)
 {
-	// push process into io-q
+	//push process into io-q
 	bool detect_change = false;
 	while (processNeedIO(ready))
 	{
@@ -631,7 +641,11 @@ bool processIsCompleted(Queue q)
 }
 bool processNeedIO(Queue ready)
 {
-	if (!isEmpty(ready)) return (front(ready).ioin == 0);
+	if (!isEmpty(ready))
+	{
+		if (ready.list[ready.front].iodur == 0) ready.list[ready.front].ioin = -1;
+		return (front(ready).ioin == 0);
+	}
 	return false;
 }
 bool processDoneIO(Queue io)
