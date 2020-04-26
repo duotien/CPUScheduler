@@ -162,6 +162,18 @@
   <ItemGroup>
     <Text Include="input.txt" />
     <Text Include="input_set.txt" />
+    <Text Include="test1.txt" />
+    <Text Include="test10.txt" />
+    <Text Include="test12.txt" />
+    <Text Include="test5.txt" />
+    <Text Include="test2.txt" />
+    <Text Include="test3.txt" />
+    <Text Include="test4.txt" />
+    <Text Include="test9.txt" />
+    <Text Include="test6.txt" />
+    <Text Include="test11.txt" />
+    <Text Include="test7.txt" />
+    <Text Include="test8.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

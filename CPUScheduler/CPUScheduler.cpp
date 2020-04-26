@@ -11,7 +11,8 @@ Author: Tien Duong
 #include <cmath>
 
 using namespace std;
-const int MAX = 100;
+
+const int MAX = 1000;
 //======================================================//
 //		ENUM
 //======================================================//
@@ -138,11 +139,10 @@ const int QUEUE_TAB = TAB + 20;
 //======================================================//
 int main()
 {
-	//all testcases can be found in: input_test.txt
 	//remove 'input.txt' to manually input from keyboard
-	//use: output(true); to print all the step;
+	//use: output(true); to print step by step;
 	input("input.txt");
-	output(true);
+	output();
 	return 0;
 }
 //======================================================//
@@ -176,11 +176,14 @@ void pop(Queue& q)
 }
 void pop_all(Queue & q)
 {
-	while (!isEmpty(q)) pop(q);
+	while (!isEmpty(q))
+	{
+		pop(q);
+	}
 }
 bool isFull(Queue q)
 {
-	if (q.front == 0 && q.rear == MAX - 1) return true;
+	if (q.front == 0 && q.rear == MAX - 1 && q.list[q.front] != NULLDATA) return true;
 	if (q.front == q.rear + 1 && q.list[q.front] != NULLDATA) return true;
 	return false;
 }
@@ -271,11 +274,9 @@ bool compareArrivalTime(Process p1, Process p2)
 //input
 void input()
 {
-	string stype, squantum, scheck_time, sburst, sin, sioin, siodur;
-	cin >> stype >> n >> squantum >> scheck_time;
+	string stype, scheck_time, sburst, sin, sioin, siodur;
+	cin >> stype >> n;
 	algorithm_type = stringToEnum(stype);
-	quantum = getStringtoInt(squantum);
-	check_time = getStringtoInt(scheck_time);
 	for (int i = 0; i < n; ++i)
 	{
 		cin >> p[i].name >> sburst >> sin >> sioin >> siodur;
@@ -284,9 +285,18 @@ void input()
 		p[i].ioin = getStringtoInt(sioin);
 		p[i].iodur = getStringtoInt(siodur);
 	}
+	sort(p, p + n, compareArrivalTime);
+	if (algorithm_type == A_RR || algorithm_type == A_ALL)
+	{
+		string squantum;
+		cin >> squantum;
+		quantum = getStringtoInt(squantum);
+	}
+	else quantum = 0;
+	cin >> scheck_time;
+	check_time = getStringtoInt(scheck_time);
 	step = findGCD(p, n, 0, check_time);
 	step_RR = findGCD(p, n, quantum, check_time);
-	sort(p, p + n, compareArrivalTime);
 }
 void input(string filename)
 {
@@ -294,11 +304,9 @@ void input(string filename)
 	f.open(filename.c_str());
 	if (f.is_open())
 	{
-		string stype, squantum, scheck_time, sburst, sin, sioin, siodur;
-		f >> stype >> n >> squantum >> scheck_time;
+		string stype, scheck_time, sburst, sin, sioin, siodur;
+		f >> stype >> n;
 		algorithm_type = stringToEnum(stype);
-		quantum = getStringtoInt(squantum);
-		check_time = getStringtoInt(scheck_time);
 		for (int i = 0; i < n; ++i)
 		{
 			f >> p[i].name >> sburst >> sin >> sioin >> siodur;
@@ -307,9 +315,18 @@ void input(string filename)
 			p[i].ioin = getStringtoInt(sioin);
 			p[i].iodur = getStringtoInt(siodur);
 		}
+		sort(p, p + n, compareArrivalTime);
+		if (algorithm_type == A_RR || algorithm_type == A_ALL)
+		{
+			string squantum;
+			f >> squantum;
+			quantum = getStringtoInt(squantum);
+		}
+		else quantum = 0;
+		f >> scheck_time;
+		check_time = getStringtoInt(scheck_time);
 		step = findGCD(p, n, 0, check_time);
 		step_RR = findGCD(p, n, quantum, check_time);
-		sort(p, p + n, compareArrivalTime);
 		f.close();
 	}
 	else cout << "Can't open the file." << endl;
@@ -449,8 +466,8 @@ void printSchedulerStep(Queue ready, Queue io, int t)
 	if (!isEmpty(io)) cout << front(io).name;
 	else cout << "-";
 
-	cout << setw(QUEUE_TAB) << getPrintQueueString(ready, false);
 	cout << setw(QUEUE_TAB) << getPrintQueueString(io, false);
+	cout << setw(QUEUE_TAB) << getPrintQueueString(ready, false);
 	cout << endl;
 }
 void printHeaders(string algorithm_name)
@@ -460,8 +477,8 @@ void printHeaders(string algorithm_name)
 		<< "t" << setw(TAB)
 		<< "CPU" << setw(TAB)
 		<< "IO" << setw(QUEUE_TAB)
-		<< "r-q" << setw(QUEUE_TAB)
-		<< "io-q" << endl;
+		<< "io-q" << setw(QUEUE_TAB)
+		<< "r-q" << endl;
 }
 void printRRSchedulerStep(Queue ready, Queue io, int t, int RRcount)
 {
@@ -477,8 +494,8 @@ void printRRSchedulerStep(Queue ready, Queue io, int t, int RRcount)
 	if (!isEmpty(io)) cout << front(io).name;
 	else cout << "-";
 
-	cout << setw(QUEUE_TAB) << getPrintQueueString(ready, false);
 	cout << setw(QUEUE_TAB) << getPrintQueueString(io, false);
+	cout << setw(QUEUE_TAB) << getPrintQueueString(ready, false);
 	cout << endl;
 }
 void printRRHeaders()
@@ -489,8 +506,8 @@ void printRRHeaders()
 		<< "q" << setw(TAB)
 		<< "CPU" << setw(TAB)
 		<< "IO" << setw(QUEUE_TAB)
-		<< "r-q" << setw(QUEUE_TAB)
-		<< "io-q" << endl;
+		<< "io-q" << setw(QUEUE_TAB)
+		<< "r-q" << endl;
 }
 //String
 string getPrintQueueString(Queue q, bool printfront)
@@ -520,8 +537,8 @@ string getResultString(Queue ready, Queue io, int t)
 	if (!isEmpty(io)) result << front(io).name;
 	else result << "-";
 	result << endl;
-	result << setw(TAB) << "Ready-queue:" << setw(TAB) << getPrintQueueString(ready, false) << endl;
-	result << setw(TAB) << "IO-queue:" << setw(TAB) << getPrintQueueString(io, false) << endl << endl;
+	result << setw(TAB) << "IO-queue:" << setw(TAB) << getPrintQueueString(io, false) << endl;
+	result << setw(TAB) << "Ready-queue:" << setw(TAB) << getPrintQueueString(ready, false) << endl << endl;
 	return result.str();
 }
 //Scheduling Algorithms
