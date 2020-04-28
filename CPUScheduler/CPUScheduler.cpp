@@ -18,20 +18,21 @@ const int MAX = 1000;
 //======================================================//
 enum AlgorithmType
 {
-	A_UNIDENTIFIED,
-	A_FCFS,
-	A_SJF,
-	A_SRTF,
-	A_RR,
-	A_ALL
+	A_UNIDENTIFIED, A_FCFS, A_SJF, A_SRTF, A_RR, A_ALL
+};
+enum ProcessStatus
+{
+	P_NULL, P_NONE, P_READY, P_RUNNING, P_WAITING, P_TERMINATED
 };
 //======================================================//
 //		All Structures here
 //======================================================//
 struct Process
 {
+	int id; //auto assigned
 	string name;
 	int burst, in, ioin, iodur;
+	ProcessStatus status;
 };
 struct Queue
 {
@@ -95,10 +96,12 @@ int findGCD(Process p[], int n, int quantum, int check_time);
 //Debug-Output
 void output(bool debug_mode = false);
 void output_debug();
+void outputPrintArray(Process arr[], int size);
 void printSchedulerStep(Queue ready, Queue io, int t);
 void printHeaders(string algorithm_name = "");
 void printRRSchedulerStep(Queue ready, Queue io, int t, int RRcount);
 void printRRHeaders();
+void printStatus(ProcessStatus status);
 //String
 string getPrintQueueString(Queue q, bool printfront = true);
 string getResultString(Queue ready, Queue io, int t);
@@ -109,7 +112,7 @@ void SRTF(int check_time = -1, bool printstep = false);
 void RR(int check_time = -1, bool printstep = false);
 //algorithms helpers
 void executeProcess(Queue& ready, Queue& io, int step);
-bool checkProcessCompletion(Queue& ready, Queue& io, bool ready_queue_only = true);
+bool checkProcessCompletion(Queue& ready, Queue& io, int terminated[], int& terminated_count, bool ready_queue_only = true);
 bool checkProcessArrival(Queue& ready, int& index, int t);
 bool checkProcessIOTime(Queue& ready, Queue& io);
 bool checkProcessIOCompletion(Queue& ready, Queue& io);
@@ -118,10 +121,11 @@ bool processNeedIO(Queue ready);
 bool processDoneIO(Queue io);
 void SJFSorter(Queue& q, bool ready_queue_was_empty);
 void SRTFSorter(Queue& q);
+void updatePrintArray(Process arr[], Queue ready, Queue io, int terminated[], int terminated_count);
 //======================================================//
 //		All Global Variables here
 //======================================================//
-Process			p[MAX];
+Process			p[MAX], p_print[MAX];
 int				n, quantum, check_time;
 int				step, step_RR;
 int				running_time;
@@ -131,7 +135,7 @@ AlgorithmType	algorithm_type;
 //======================================================//
 //		All Constants here
 //======================================================//
-const Process NULLDATA = { "-",-1,-1,-1,-1 };
+const Process NULLDATA = { -1, "-",-1,-1,-1,-1, P_NULL };
 const int DECIMAL_PLACES_LIMIT = 2;
 const int DECIMAL_VALUE = pow(10, DECIMAL_PLACES_LIMIT);
 const int TAB = 15;
@@ -141,8 +145,8 @@ int main()
 {
 	//remove 'input.txt' to manually input from keyboard
 	//use: output(true); to print step by step;
-	input("input.txt");
-	output();
+	input("test2.txt");
+	output(true);
 	return 0;
 }
 //======================================================//
@@ -160,8 +164,8 @@ void push(Queue& q, Process p)
 {
 	if (!isFull(q))
 	{
-		if (q.rear == MAX - 1)	q.rear = 0;
-		else					q.rear++;
+		if (q.rear == MAX - 1) q.rear = 0;
+		else q.rear++;
 		q.list[q.rear] = p;
 	}
 }
@@ -171,7 +175,7 @@ void pop(Queue& q)
 	{
 		q.list[q.front] = NULLDATA;
 		if (q.front == MAX - 1) q.front = 0;
-		else					q.front++;
+		else q.front++;
 	}
 }
 void pop_all(Queue & q)
@@ -280,10 +284,13 @@ void input()
 	for (int i = 0; i < n; ++i)
 	{
 		cin >> p[i].name >> sburst >> sin >> sioin >> siodur;
+		p[i].id = i;
 		p[i].burst = getStringtoInt(sburst);
 		p[i].in = getStringtoInt(sin);
 		p[i].ioin = getStringtoInt(sioin);
 		p[i].iodur = getStringtoInt(siodur);
+		p[i].status = P_NONE;
+		p_print[i] = p[i];
 	}
 	sort(p, p + n, compareArrivalTime);
 	if (algorithm_type == A_RR || algorithm_type == A_ALL)
@@ -310,10 +317,13 @@ void input(string filename)
 		for (int i = 0; i < n; ++i)
 		{
 			f >> p[i].name >> sburst >> sin >> sioin >> siodur;
+			p[i].id = i;
 			p[i].burst = getStringtoInt(sburst);
 			p[i].in = getStringtoInt(sin);
 			p[i].ioin = getStringtoInt(sioin);
 			p[i].iodur = getStringtoInt(siodur);
+			p[i].status = P_NONE;
+			p_print[i] = p[i];
 		}
 		sort(p, p + n, compareArrivalTime);
 		if (algorithm_type == A_RR || algorithm_type == A_ALL)
@@ -369,7 +379,8 @@ int getStringtoInt(string snum)
 int GCD(int a, int b)
 {
 	int r;
-	while (b != 0) {
+	while (b != 0)
+	{
 		r = a % b;
 		a = b;
 		b = r;
@@ -401,37 +412,52 @@ void output(bool debug_mode)
 	switch (algorithm_type)
 	{
 	case A_FCFS:
-		result = "First Come, First Served:\n";
+		cout << "First Come, First Served:\n";
 		FCFS(check_time, debug_mode);
 		break;
 	case A_SJF:
-		result = "Shortest Job First:\n";
+		cout << "Shortest Job First:\n";
 		SJF(check_time, debug_mode);
 		break;
 	case A_SRTF:
-		result = "Shortest Remaining Time First:\n";
+		cout << "Shortest Remaining Time First:\n";
 		SRTF(check_time, debug_mode);
 		break;
 	case A_RR:
-		result = "Round Robin:\n";
+		cout << "Round Robin:\n";
 		RR(check_time, debug_mode);
 		break;
 	case A_ALL:
-		result += "First Come, First Served:\n";
+		cout << "t = " << (float)check_time / DECIMAL_VALUE << endl;
+		cout << "First Come, First Served:\n";
 		FCFS(check_time, debug_mode);
-		result += "Shortest Job First:\n";
+		//cout << result;
+		outputPrintArray(p_print, n);
+		cout << "Shortest Job First:\n";
 		SJF(check_time, debug_mode);
-		result += "Shortest Remaining Time First:\n";
+		//cout << result;
+		outputPrintArray(p_print, n);
+		cout << "Shortest Remaining Time First:\n";
 		SRTF(check_time, debug_mode);
-		result += "Round Robin:\n";
+		//cout << result;
+		outputPrintArray(p_print, n);
+		cout << "Round Robin:\n";
 		RR(check_time, debug_mode);
-		break;
+		//cout << result;
+		outputPrintArray(p_print, n);
+		return;
 	default:
-		result = "Unidentified Algorithm type.\ntype: FCFS, SJF, SRTF, ALL.\n";
-		break;
+		cout << "Unidentified Algorithm type.\ntype: FCFS, SJF, SRTF, ALL.\n";
+		return;
 	}
-	if (running_time < check_time) result += "total run-time exceeded.\n";
-	cout << result;
+	//cout << result;
+	cout << "run-time = " <<(float)running_time / DECIMAL_VALUE << endl;
+	cout << "t = " << (float)check_time / DECIMAL_VALUE << endl;
+	if (running_time < check_time)
+	{
+		cout << "Total run-time exceeded. All processes are terminated.\n";
+	}
+	else outputPrintArray(p_print, n);
 }
 void output_debug()
 {
@@ -453,6 +479,15 @@ void output_debug()
 	cout << "STEP = " << step << endl;
 	cout << "STEP_RR = " << step_RR << endl;
 	cout << "==================================" << endl;
+}
+void outputPrintArray(Process arr[], int size)
+{
+	for (int i = 0; i < size; ++i)
+	{
+		cout << arr[i].name << ": ";
+		printStatus(arr[i].status);
+		cout << endl;
+	}
 }
 void printSchedulerStep(Queue ready, Queue io, int t)
 {
@@ -509,6 +544,30 @@ void printRRHeaders()
 		<< "io-q" << setw(QUEUE_TAB)
 		<< "r-q" << endl;
 }
+void printStatus(ProcessStatus status)
+{
+	switch (status)
+	{
+	case P_NONE:
+		cout << "Hasn't arrived yet.";
+		break;
+	case P_READY:
+		cout << "Ready";
+		break;
+	case P_RUNNING:
+		cout << "Running (CPU)";
+		break;
+	case P_WAITING:
+		cout << "Waiting (IO)";
+		break;
+	case P_TERMINATED:
+		cout << "Terminated";
+		break;
+	default:
+		cout << "Process doesn't exist or NULL";
+		break;
+	}
+}
 //String
 string getPrintQueueString(Queue q, bool printfront)
 {
@@ -549,23 +608,30 @@ void FCFS(int check_time, bool printstep)
 	init(io);
 	int index = 0,
 		t = p[0].in;
+	int *terminated = new int[n],
+		terminated_count = 0;
 	if (printstep) printHeaders("First Come First Served");
 	do
 	{
-		checkProcessCompletion(ready, io);
+		checkProcessCompletion(ready, io, terminated, terminated_count);
 		checkProcessArrival(ready, index, t);
 		checkProcessIOTime(ready, io);
 		checkProcessIOCompletion(ready, io);
 		//print step & get Result//
-		if (t == check_time) result += getResultString(ready, io, t);
+		if (t == check_time)
+		{
+			result = getResultString(ready, io, t);
+			updatePrintArray(p_print, ready, io, terminated, terminated_count);
+		}
 		if (printstep) printSchedulerStep(ready, io, t);
 		else if (t == check_time) break;
 		//====================//
 		executeProcess(ready, io, step);
 		t += step;
-	} while (!isEmpty(ready) || !isEmpty(io));
+	} while (!isEmpty(ready) || !isEmpty(io) || index != n);
 	if (printstep) cout << "==================================" << endl;
-	running_time = t;
+	running_time = t - step;
+	delete[] terminated;
 }
 void SJF(int check_time, bool printstep)
 {
@@ -574,12 +640,14 @@ void SJF(int check_time, bool printstep)
 	init(io);
 	int index = 0,
 		t = p[0].in;
+	int *terminated = new int[n],
+		terminated_count = 0;
 	bool detect_change,
 		 ready_queue_was_empty;
 	if (printstep) printHeaders("Shortest Job First");
 	do
 	{
-		checkProcessCompletion(ready, io);
+		checkProcessCompletion(ready, io, terminated, terminated_count);
 		ready_queue_was_empty = isEmpty(ready);
 		detect_change = checkProcessArrival(ready, index, t);
 		if (detect_change) SJFSorter(ready, ready_queue_was_empty);
@@ -588,15 +656,20 @@ void SJF(int check_time, bool printstep)
 		detect_change = checkProcessIOCompletion(ready, io);
 		if (detect_change) SJFSorter(ready, ready_queue_was_empty);
 		//print step & get Result//
-		if (t == check_time) result += getResultString(ready, io, t);
+		if (t == check_time)
+		{
+			result = getResultString(ready, io, t);
+			updatePrintArray(p_print, ready, io, terminated, terminated_count);
+		}
 		if (printstep) printSchedulerStep(ready, io, t);
 		else if (t == check_time) break;
 		//====================//
 		executeProcess(ready, io, step);
 		t += step;
-	} while (!isEmpty(ready) || !isEmpty(io));
+	} while (!isEmpty(ready) || !isEmpty(io) || index != n);
 	if(printstep) cout << "==================================" << endl;
-	running_time = t;
+	running_time = t - step;
+	delete[] terminated;
 }
 void SRTF(int check_time, bool printstep)
 {
@@ -605,26 +678,33 @@ void SRTF(int check_time, bool printstep)
 	init(io);
 	int index = 0,
 		t = p[0].in;
+	int *terminated = new int[n],
+		terminated_count = 0;
 	bool detect_changes;
 	if (printstep) printHeaders("Shortest Remaining Time First");
 	do
 	{
-		checkProcessCompletion(ready, io);
+		checkProcessCompletion(ready, io, terminated, terminated_count);
 		detect_changes = checkProcessArrival(ready, index, t);
 		if (detect_changes) SRTFSorter(ready);
 		checkProcessIOTime(ready, io);
 		detect_changes = checkProcessIOCompletion(ready, io);
 		if (detect_changes) SRTFSorter(ready);
 		//print step & get Result//
-		if (t == check_time) result += getResultString(ready, io, t);
+		if (t == check_time)
+		{
+			result = getResultString(ready, io, t);
+			updatePrintArray(p_print, ready, io, terminated, terminated_count);
+		}
 		if (printstep) printSchedulerStep(ready, io, t);
 		else if (t == check_time) break;
 		//====================//
 		executeProcess(ready, io, step);
 		t += step;
-	} while (!isEmpty(ready) || !isEmpty(io));
+	} while (!isEmpty(ready) || !isEmpty(io) || index != n);
 	if (printstep) cout << "==================================" << endl;
-	running_time = t;
+	running_time = t - step;
+	delete[] terminated;
 }
 void RR(int check_time, bool printstep)
 {
@@ -634,11 +714,13 @@ void RR(int check_time, bool printstep)
 	int index = 0,
 		t = p[0].in,
 		RRcount = 0;
+	int *terminated = new int[n],
+		terminated_count = 0;
 	bool detect_change;
 	if (printstep) printRRHeaders();
 	do
 	{
-		detect_change = checkProcessCompletion(ready, io);
+		detect_change = checkProcessCompletion(ready, io, terminated, terminated_count);
 		if (detect_change || isEmpty(ready)) RRcount = 0;
 		checkProcessArrival(ready, index, t);
 		if (RRcount != quantum)
@@ -656,16 +738,21 @@ void RR(int check_time, bool printstep)
 			RRcount = 0;
 		}
 		//print step & get Result//
-		if (t == check_time) result += getResultString(ready, io, t);
+		if (t == check_time)
+		{
+			result = getResultString(ready, io, t);
+			updatePrintArray(p_print, ready, io, terminated, terminated_count);
+		}
 		if (printstep) printRRSchedulerStep(ready, io, t, RRcount);
 		else if (t == check_time) break;
 		//====================//
 		executeProcess(ready, io, step_RR);
 		t += step_RR;
 		RRcount += step_RR;
-	} while (!isEmpty(ready) || !isEmpty(io));
+	} while (!isEmpty(ready) || !isEmpty(io) || index != n);
 	if (printstep) cout << "==================================" << endl;
-	running_time = t;
+	running_time = t - step_RR;
+	delete[] terminated;
 }
 //Algorithm Helpers
 void executeProcess(Queue& ready, Queue& io, int step)
@@ -678,21 +765,31 @@ void executeProcess(Queue& ready, Queue& io, int step)
 	if (!isEmpty(io))
 	{
 		io.list[io.front].iodur -= step;
-		if (io.list[io.front].iodur == 0) io.list[io.front].ioin = -1;
+		if (io.list[io.front].iodur == 0)
+		{
+			io.list[io.front].ioin = -1;
+		}
 	}
 }
-bool checkProcessCompletion(Queue& ready, Queue& io, bool ready_queue_only)
+bool checkProcessCompletion(Queue& ready, Queue& io, int terminated[], int& terminated_count, bool ready_queue_only)
 {
 	bool detect_change = false;
 	if (processIsCompleted(ready))
 	{
+		terminated[terminated_count] = front(ready).id;
+		++terminated_count;
 		pop(ready);
 		detect_change = true;
 	}
 	if (processIsCompleted(io))
 	{
+		terminated[terminated_count] = front(io).id;
+		++terminated_count;
 		pop(io);
-		if(!ready_queue_only) detect_change = true;
+		if (!ready_queue_only)
+		{
+			detect_change = true;
+		}
 	}
 	return detect_change;
 }
@@ -702,9 +799,14 @@ bool checkProcessArrival(Queue& ready, int& index, int t)
 	bool detect_change = false;
 	while (t == p[index].in && index < n)
 	{
+		p[index].status = P_READY;
 		push(ready, p[index]);
 		index++;
 		detect_change = true;
+	}
+	if (!isEmpty(ready))
+	{
+		ready.list[ready.front].status = P_RUNNING;
 	}
 	return detect_change;
 }
@@ -714,6 +816,7 @@ bool checkProcessIOTime(Queue& ready, Queue& io)
 	bool detect_change = false;
 	while (processNeedIO(ready))
 	{
+		ready.list[ready.front].status = P_WAITING;
 		push(io, front(ready));
 		pop(ready);
 		detect_change = true;
@@ -725,6 +828,7 @@ bool checkProcessIOCompletion(Queue& ready, Queue& io)
 	bool detect_change = false;
 	while (processDoneIO(io))
 	{
+		io.list[io.front].status = P_READY;
 		push(ready, front(io));
 		pop(io);
 		detect_change = true;
@@ -733,29 +837,61 @@ bool checkProcessIOCompletion(Queue& ready, Queue& io)
 }
 bool processIsCompleted(Queue q)
 {
-	if (!isEmpty(q)) return (front(q).burst == 0 && front(q).iodur == 0);
+	if (!isEmpty(q))
+	{
+		return (front(q).burst == 0 && front(q).iodur == 0);
+	}
 	return false;
 }
 bool processNeedIO(Queue ready)
 {
 	if (!isEmpty(ready))
 	{
-		if (ready.list[ready.front].iodur == 0) ready.list[ready.front].ioin = -1;
+		if (ready.list[ready.front].iodur == 0)
+		{
+			ready.list[ready.front].ioin = -1;
+		}
 		return (front(ready).ioin == 0);
 	}
 	return false;
 }
 bool processDoneIO(Queue io)
 {
-	if (!isEmpty(io)) return (front(io).iodur == 0);
+	if (!isEmpty(io))
+	{
+		return (front(io).iodur == 0);
+	}
 	return false;
 }
 void SJFSorter(Queue& q, bool ready_queue_was_empty)
 {
-	if (ready_queue_was_empty) sortQueue(q, true);
-	else					   sortQueue(q);
+	if (ready_queue_was_empty)
+	{
+		sortQueue(q, true);
+	}
+	else
+	{
+		sortQueue(q);
+	}
 }
 void SRTFSorter(Queue& q)
 {
 	sortQueue(q, true);
+}
+void updatePrintArray(Process arr[], Queue ready, Queue io, int terminated[], int terminated_count)
+{
+	while (!isEmpty(ready))
+	{
+		arr[front(ready).id] = front(ready);
+		pop(ready);
+	}
+	while (!isEmpty(io))
+	{
+		arr[front(io).id] = front(io);
+		pop(io);
+	}
+	for (int i = 0; i < terminated_count; ++i)
+	{
+		arr[terminated[i]].status = P_TERMINATED;
+	}
 }
