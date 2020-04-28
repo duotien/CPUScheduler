@@ -22,7 +22,7 @@ enum AlgorithmType
 };
 enum ProcessStatus
 {
-	P_NULL, P_NONE, P_READY, P_RUNNING, P_WAITING, P_TERMINATED
+	P_NULL, P_NONE, P_READY, P_RUNNING, P_WAITING, P_IO, P_TERMINATED
 };
 //======================================================//
 //		All Structures here
@@ -112,6 +112,7 @@ void SRTF(int check_time = -1, bool printstep = false);
 void RR(int check_time = -1, bool printstep = false);
 //algorithms helpers
 void executeProcess(Queue& ready, Queue& io, int step);
+void changeProcessState(Queue& q, ProcessStatus status);
 bool checkProcessCompletion(Queue& ready, Queue& io, int terminated[], int& terminated_count, bool ready_queue_only = true);
 bool checkProcessArrival(Queue& ready, int& index, int t);
 bool checkProcessIOTime(Queue& ready, Queue& io);
@@ -144,9 +145,9 @@ const int QUEUE_TAB = TAB + 20;
 int main()
 {
 	//remove 'input.txt' to manually input from keyboard
-	//use: output(true); to print step by step;
-	input("test2.txt");
-	output(true);
+	//use: output(true); to print Gantt Chart;
+	input("test11.txt");
+	output();
 	return 0;
 }
 //======================================================//
@@ -230,6 +231,7 @@ void assignQueueToArray(Process p[], int& size, Queue q)
 	while (!isEmpty(q) && i < size)
 	{
 		p[i] = front(q);
+		p[i].status = P_READY;
 		pop(q);
 		++i;
 	}
@@ -447,7 +449,7 @@ void output(bool debug_mode)
 		outputPrintArray(p_print, n);
 		return;
 	default:
-		cout << "Unidentified Algorithm type.\ntype: FCFS, SJF, SRTF, ALL.\n";
+		cout << "Unidentified Algorithm type.\ntype: FCFS, SJF, SRTF, RR or ALL.\n";
 		return;
 	}
 	//cout << result;
@@ -549,16 +551,19 @@ void printStatus(ProcessStatus status)
 	switch (status)
 	{
 	case P_NONE:
-		cout << "Hasn't arrived yet.";
+		cout << "Not arrived yet";
 		break;
 	case P_READY:
 		cout << "Ready";
 		break;
 	case P_RUNNING:
-		cout << "Running (CPU)";
+		cout << "Running";
 		break;
 	case P_WAITING:
-		cout << "Waiting (IO)";
+		cout << "In I/O queue";
+		break;
+	case P_IO:
+		cout << "I/O";
 		break;
 	case P_TERMINATED:
 		cout << "Terminated";
@@ -617,6 +622,8 @@ void FCFS(int check_time, bool printstep)
 		checkProcessArrival(ready, index, t);
 		checkProcessIOTime(ready, io);
 		checkProcessIOCompletion(ready, io);
+		changeProcessState(ready, P_RUNNING);
+		changeProcessState(io, P_IO);
 		//print step & get Result//
 		if (t == check_time)
 		{
@@ -630,7 +637,7 @@ void FCFS(int check_time, bool printstep)
 		t += step;
 	} while (!isEmpty(ready) || !isEmpty(io) || index != n);
 	if (printstep) cout << "==================================" << endl;
-	running_time = t - step;
+	running_time = t;
 	delete[] terminated;
 }
 void SJF(int check_time, bool printstep)
@@ -655,6 +662,8 @@ void SJF(int check_time, bool printstep)
 		ready_queue_was_empty = isEmpty(ready);
 		detect_change = checkProcessIOCompletion(ready, io);
 		if (detect_change) SJFSorter(ready, ready_queue_was_empty);
+		changeProcessState(ready, P_RUNNING);
+		changeProcessState(io, P_IO);
 		//print step & get Result//
 		if (t == check_time)
 		{
@@ -668,7 +677,7 @@ void SJF(int check_time, bool printstep)
 		t += step;
 	} while (!isEmpty(ready) || !isEmpty(io) || index != n);
 	if(printstep) cout << "==================================" << endl;
-	running_time = t - step;
+	running_time = t;
 	delete[] terminated;
 }
 void SRTF(int check_time, bool printstep)
@@ -690,6 +699,8 @@ void SRTF(int check_time, bool printstep)
 		checkProcessIOTime(ready, io);
 		detect_changes = checkProcessIOCompletion(ready, io);
 		if (detect_changes) SRTFSorter(ready);
+		changeProcessState(ready, P_RUNNING);
+		changeProcessState(io, P_IO);
 		//print step & get Result//
 		if (t == check_time)
 		{
@@ -703,7 +714,7 @@ void SRTF(int check_time, bool printstep)
 		t += step;
 	} while (!isEmpty(ready) || !isEmpty(io) || index != n);
 	if (printstep) cout << "==================================" << endl;
-	running_time = t - step;
+	running_time = t;
 	delete[] terminated;
 }
 void RR(int check_time, bool printstep)
@@ -732,11 +743,14 @@ void RR(int check_time, bool printstep)
 		else
 		{
 			checkProcessIOCompletion(ready, io);
+			changeProcessState(ready, P_READY);
 			push(ready, front(ready));
 			pop(ready);
 			checkProcessIOTime(ready, io);
 			RRcount = 0;
 		}
+		changeProcessState(ready, P_RUNNING);
+		changeProcessState(io, P_IO);
 		//print step & get Result//
 		if (t == check_time)
 		{
@@ -751,7 +765,7 @@ void RR(int check_time, bool printstep)
 		RRcount += step_RR;
 	} while (!isEmpty(ready) || !isEmpty(io) || index != n);
 	if (printstep) cout << "==================================" << endl;
-	running_time = t - step_RR;
+	running_time = t;
 	delete[] terminated;
 }
 //Algorithm Helpers
@@ -769,6 +783,13 @@ void executeProcess(Queue& ready, Queue& io, int step)
 		{
 			io.list[io.front].ioin = -1;
 		}
+	}
+}
+void changeProcessState(Queue& q, ProcessStatus status)
+{
+	if (!isEmpty(q))
+	{
+		q.list[q.front].status = status;
 	}
 }
 bool checkProcessCompletion(Queue& ready, Queue& io, int terminated[], int& terminated_count, bool ready_queue_only)
@@ -868,6 +889,7 @@ void SJFSorter(Queue& q, bool ready_queue_was_empty)
 	if (ready_queue_was_empty)
 	{
 		sortQueue(q, true);
+		q.list[q.front].status = P_RUNNING;
 	}
 	else
 	{
@@ -877,6 +899,7 @@ void SJFSorter(Queue& q, bool ready_queue_was_empty)
 void SRTFSorter(Queue& q)
 {
 	sortQueue(q, true);
+	q.list[q.front].status = P_RUNNING;
 }
 void updatePrintArray(Process arr[], Queue ready, Queue io, int terminated[], int terminated_count)
 {
