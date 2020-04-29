@@ -146,7 +146,8 @@ int main()
 {
 	//remove 'input.txt' to manually input from keyboard
 	//use: output(true); to print Gantt Chart;
-	input("test11.txt");
+	
+	input("test12.txt");
 	output();
 	return 0;
 }
